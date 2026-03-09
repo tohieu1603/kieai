@@ -62,5 +62,11 @@ export const env = {
     merchantName: process.env.SEPAY_MERCHANT_NAME || 'OPERIS MARKET',
   },
 
+  // LiteLLM proxy
+  litellm: {
+    baseUrl: process.env.LITELLM_BASE_URL || 'http://localhost:4000',
+    masterKey: process.env.LITELLM_MASTER_KEY || '',
+  },
+
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 } as const;

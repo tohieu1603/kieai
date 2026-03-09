@@ -9,6 +9,7 @@ import settingsRoutes from './settings.routes';
 import updateRoutes from './update.routes';
 import subscriptionRoutes from './subscription.routes';
 import invoiceRoutes from './invoice.routes';
+import chatRoutes from './chat.routes';
 
 const router = Router();
 
@@ -44,5 +45,8 @@ router.use('/subscriptions', subscriptionRoutes);
 
 // Invoices
 router.use('/invoices', invoiceRoutes);
+
+// Chat (AI proxy)
+router.use('/chat', chatRoutes);
 
 export default router;

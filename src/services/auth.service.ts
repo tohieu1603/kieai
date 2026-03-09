@@ -7,6 +7,7 @@ import { env } from '../config/env.config';
 import { logger } from '../config/logger.config';
 import { AppError } from '../utils/app-error';
 import { generateRandomHex, sha256 } from '../utils/crypto';
+import { emailService } from './email.service';
 import { UserRole } from '../enums';
 
 // Lazy entity imports to avoid circular dependency issues
@@ -85,7 +86,8 @@ export class AuthService {
 
     logger.info(`User registered: ${user.email}`);
 
-    // TODO: Send verification email with emailVerifyToken
+    // Send verification email (non-blocking — failure does not break registration)
+    emailService.sendVerificationEmail(user.email, user.name, emailVerifyToken);
 
     return {
       id: user.id,
@@ -249,8 +251,10 @@ export class AuthService {
 
     logger.info(`Password reset requested for: ${user.email}`);
 
-    // TODO: Send email with resetToken (NOT the hash)
-    // In dev, log the token
+    // Send reset email (non-blocking)
+    emailService.sendPasswordResetEmail(user.email, user.name, resetToken);
+
+    // In dev, also log the token for convenience
     if (!env.isProduction) {
       logger.debug(`[DEV] Reset token for ${email}: ${resetToken}`);
     }

@@ -31,6 +31,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Logs', description: 'API call logs & usage stats' },
       { name: 'Settings', description: 'User settings & profile' },
       { name: 'Updates', description: 'API updates & changelog' },
+      { name: 'Chat', description: 'AI chat completions via API key' },
     ],
     components: {
       securitySchemes: {
@@ -39,6 +40,11 @@ const options: swaggerJsdoc.Options = {
           in: 'cookie',
           name: 'access_token',
           description: 'JWT access token stored in httpOnly cookie. Login first to set cookie.',
+        },
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'API key as Bearer token. Use the key returned from POST /api-keys.',
         },
       },
       schemas: {
