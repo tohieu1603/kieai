@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { apiKeyController } from '../controllers/api-key.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { CreateApiKeyDto } from '../dtos/api-key.dto';
+import { CreateApiKeyDto, RenameApiKeyDto } from '../dtos/api-key.dto';
 
 const router = Router();
 
@@ -93,6 +93,7 @@ router.get('/', authenticate, apiKeyController.list);
  *       404:
  *         description: API key not found (or belongs to another user)
  */
+router.patch('/:id', authenticate, validateBody(RenameApiKeyDto), apiKeyController.rename);
 router.delete('/:id', authenticate, apiKeyController.revoke);
 
 export default router;
