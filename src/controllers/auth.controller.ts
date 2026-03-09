@@ -32,6 +32,13 @@ export class AuthController {
     return ApiResponse.success(res, result);
   });
 
+  /** POST /api/auth/resend-verification */
+  resendVerification = asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body;
+    const result = await authService.resendVerification(email);
+    return ApiResponse.success(res, result);
+  });
+
   /** POST /api/auth/login */
   login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;

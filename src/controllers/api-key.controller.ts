@@ -26,6 +26,15 @@ export class ApiKeyController extends BaseController<ApiKey> {
     return ApiResponse.success(res, keys);
   });
 
+  /** PATCH /:id — Rename an API key */
+  rename = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { name } = req.body;
+    const result = await apiKeyService.renameKey(id, req.user.id, name);
+    return ApiResponse.success(res, result, 'API key renamed');
+  });
+
   /** DELETE /:id — Revoke an API key */
   revoke = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw AppError.unauthorized();

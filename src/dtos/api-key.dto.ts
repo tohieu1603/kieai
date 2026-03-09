@@ -6,3 +6,10 @@ export class CreateApiKeyDto {
   @MaxLength(200)
   name!: string;
 }
+
+export class RenameApiKeyDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string;
+}

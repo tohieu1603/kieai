@@ -19,26 +19,20 @@ export class EmailService {
   /**
    * Send email verification link after registration.
    */
-  async sendVerificationEmail(to: string, name: string, token: string): Promise<void> {
-    const verifyUrl = `${env.frontendUrl}/auth/verify-email?token=${token}`;
-
+  async sendVerificationEmail(to: string, name: string, code: string): Promise<void> {
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #111; margin-bottom: 8px;">Welcome to Operis Market!</h2>
         <p style="color: #555; font-size: 15px;">Hi <strong>${name}</strong>,</p>
-        <p style="color: #555; font-size: 15px;">Please verify your email address to get started.</p>
-        <a href="${verifyUrl}"
-           style="display: inline-block; padding: 12px 28px; margin: 20px 0;
-                  background: #111; color: #fff; border-radius: 6px;
-                  text-decoration: none; font-weight: 600; font-size: 14px;">
-          Verify Email
-        </a>
-        <p style="color: #888; font-size: 13px; margin-top: 24px;">
-          Or copy this link: <br/>
-          <a href="${verifyUrl}" style="color: #555; word-break: break-all;">${verifyUrl}</a>
-        </p>
+        <p style="color: #555; font-size: 15px;">Please use the verification code below to verify your email address.</p>
+        <div style="margin: 24px 0; text-align: center;">
+          <span style="display: inline-block; padding: 16px 32px; background: #f5f5f5; border-radius: 8px;
+                       font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #111;">
+            ${code}
+          </span>
+        </div>
         <p style="color: #aaa; font-size: 12px; margin-top: 32px;">
-          This link expires in 24 hours. If you didn't create an account, ignore this email.
+          If you didn't create an account, ignore this email.
         </p>
       </div>
     `;

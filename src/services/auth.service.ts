@@ -61,7 +61,7 @@ export class AuthService {
       .toUpperCase()
       .substring(0, 2);
 
-    const emailVerifyToken = generateRandomHex(32);
+    const emailVerifyToken = String(Math.floor(100000 + Math.random() * 900000));
 
     const user = await userRepo.save(
       userRepo.create({
@@ -109,6 +109,28 @@ export class AuthService {
   }
 
   /**
+   * Resend verification email with a new 6-digit code.
+   */
+  async resendVerification(email: string) {
+    const { userRepo } = getRepos();
+    const user = await userRepo.findOne({ where: { email } });
+
+    // Always return success to prevent email enumeration
+    if (!user || user.emailVerified) {
+      return { message: 'If the account exists and is unverified, a new code has been sent.' };
+    }
+
+    const newCode = String(Math.floor(100000 + Math.random() * 900000));
+    user.emailVerifyToken = newCode;
+    await userRepo.save(user);
+
+    emailService.sendVerificationEmail(user.email, user.name, newCode);
+    logger.info(`Verification email resent to: ${user.email}`);
+
+    return { message: 'If the account exists and is unverified, a new code has been sent.' };
+  }
+
+  /**
    * Login — returns access + refresh tokens.
    */
   async login(email: string, password: string) {
@@ -120,7 +142,10 @@ export class AuthService {
     if (!valid) throw AppError.unauthorized('Invalid email or password');
 
     if (!user.emailVerified) {
-      throw AppError.forbidden('Please verify your email before logging in');
+      throw new AppError('Please verify your email before logging in', 403, true, {
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      });
     }
 
     const { accessToken, refreshToken, family } = this.generateTokenPair(user);

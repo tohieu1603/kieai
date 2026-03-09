@@ -70,6 +70,16 @@ export class ApiKeyService extends BaseService<ApiKey> {
   }
 
   /**
+   * Rename an API key. Uses findByIdAndOwner to prevent IDOR.
+   */
+  async renameKey(id: string, userId: string, name: string): Promise<{ id: string; name: string }> {
+    const apiKey = await this.findByIdAndOwner(id, userId);
+    apiKey.name = name;
+    await this.repository.save(apiKey);
+    return { id: apiKey.id, name: apiKey.name };
+  }
+
+  /**
    * Revoke an API key by id. Uses findByIdAndOwner to prevent IDOR.
    */
   async revokeKey(id: string, userId: string): Promise<void> {

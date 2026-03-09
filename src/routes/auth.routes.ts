@@ -117,6 +117,7 @@ router.post('/login', authRateLimit, validateBody(LoginDto), authController.logi
  *         description: Invalid verification token
  */
 router.post('/verify-email', validateBody(VerifyEmailDto), authController.verifyEmail);
+router.post('/resend-verification', authRateLimit, authController.resendVerification);
 
 /**
  * @swagger
