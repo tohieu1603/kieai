@@ -27,7 +27,14 @@ import * as crypto from 'crypto';
 
 async function seed() {
   await AppDataSource.initialize();
-  console.log('Database connected. Seeding...');
+  console.log('Database connected. Cleaning...');
+
+  // Truncate all tables before seeding
+  const entities = AppDataSource.entityMetadatas;
+  for (const entity of entities) {
+    await AppDataSource.query(`TRUNCATE TABLE "${entity.tableName}" CASCADE`);
+  }
+  console.log('All tables truncated. Seeding...');
 
   // ============================================================
   // 1. USERS
@@ -145,7 +152,7 @@ async function seed() {
       description: 'Most capable GPT model for complex tasks. Supports text, vision, and function calling with exceptional reasoning abilities.',
       category: ModelCategory.CHAT,
       tags: ['Chat', 'Vision', 'Function Calling'],
-      taskTags: ['Text Generation', 'Code', 'Analysis', 'Translation'],
+      taskTags: ['chat'],
       pricingDisplay: 'From 2 credits/1K tokens',
       gradient: 'from-green-500 to-emerald-600',
       isNew: false,
@@ -158,7 +165,7 @@ async function seed() {
       description: 'Advanced AI assistant with nuanced understanding, strong coding abilities, and careful reasoning. Excels at analysis and creative tasks.',
       category: ModelCategory.CHAT,
       tags: ['Chat', 'Analysis', 'Code'],
-      taskTags: ['Text Generation', 'Code Review', 'Writing', 'Research'],
+      taskTags: ['chat'],
       pricingDisplay: 'From 3 credits/1K tokens',
       gradient: 'from-orange-500 to-amber-600',
       isNew: true,
@@ -171,7 +178,7 @@ async function seed() {
       description: 'Google\'s fastest multimodal model with support for text, images, audio, and video understanding.',
       category: ModelCategory.CHAT,
       tags: ['Chat', 'Multimodal', 'Fast'],
-      taskTags: ['Text Generation', 'Summarization', 'Q&A'],
+      taskTags: ['chat'],
       pricingDisplay: 'From 1 credit/1K tokens',
       gradient: 'from-blue-500 to-indigo-600',
       isNew: true,
@@ -184,7 +191,7 @@ async function seed() {
       description: 'Meta\'s largest open-source model with state-of-the-art performance on reasoning, coding, and multilingual tasks.',
       category: ModelCategory.CHAT,
       tags: ['Chat', 'Open Source', 'Large'],
-      taskTags: ['Text Generation', 'Code', 'Multilingual'],
+      taskTags: ['chat'],
       pricingDisplay: 'From 2 credits/1K tokens',
       gradient: 'from-purple-500 to-violet-600',
       isNew: false,
@@ -199,7 +206,7 @@ async function seed() {
       description: 'Create realistic images and art from natural language descriptions. Supports various styles, sizes, and artistic directions.',
       category: ModelCategory.IMAGE,
       tags: ['Image', 'Generation', 'Art'],
-      taskTags: ['Image Generation', 'Art Creation', 'Design'],
+      taskTags: ['text-to-image'],
       pricingDisplay: '8 credits/image',
       gradient: 'from-pink-500 to-rose-600',
       isNew: false,
@@ -212,7 +219,7 @@ async function seed() {
       description: 'High-quality image generation with fine control over artistic style, composition, and details. Supports img2img and inpainting.',
       category: ModelCategory.IMAGE,
       tags: ['Image', 'Open Source', 'Customizable'],
-      taskTags: ['Image Generation', 'Inpainting', 'Style Transfer'],
+      taskTags: ['text-to-image', 'image-to-image', 'image-editing'],
       pricingDisplay: '4 credits/image',
       gradient: 'from-cyan-500 to-teal-600',
       isNew: false,
@@ -225,7 +232,7 @@ async function seed() {
       description: 'Industry-leading image generation with photorealistic output and exceptional artistic quality.',
       category: ModelCategory.IMAGE,
       tags: ['Image', 'Photorealistic', 'Premium'],
-      taskTags: ['Image Generation', 'Photography', 'Concept Art'],
+      taskTags: ['text-to-image'],
       pricingDisplay: '12 credits/image',
       gradient: 'from-indigo-500 to-blue-600',
       isNew: true,
@@ -240,7 +247,7 @@ async function seed() {
       description: 'Next-generation video model capable of creating high-fidelity videos from text and image prompts with cinematic quality.',
       category: ModelCategory.VIDEO,
       tags: ['Video', 'Generation', 'Cinematic'],
-      taskTags: ['Video Generation', 'Text-to-Video', 'Animation'],
+      taskTags: ['text-to-video'],
       pricingDisplay: '50 credits/5s clip',
       gradient: 'from-red-500 to-orange-600',
       isNew: true,
@@ -253,7 +260,7 @@ async function seed() {
       description: 'OpenAI\'s text-to-video model creating realistic and imaginative scenes from text instructions up to 60 seconds.',
       category: ModelCategory.VIDEO,
       tags: ['Video', 'Text-to-Video', 'Premium'],
-      taskTags: ['Video Generation', 'Storytelling', 'Commercial'],
+      taskTags: ['text-to-video'],
       pricingDisplay: '100 credits/10s clip',
       gradient: 'from-violet-500 to-purple-600',
       isNew: true,
@@ -268,7 +275,7 @@ async function seed() {
       description: 'AI music generation from text prompts. Create full songs with vocals, instruments, and lyrics in any genre.',
       category: ModelCategory.MUSIC,
       tags: ['Music', 'Audio', 'Generation'],
-      taskTags: ['Music Generation', 'Song Writing', 'Audio'],
+      taskTags: ['text-to-music'],
       pricingDisplay: '20 credits/song',
       gradient: 'from-yellow-500 to-orange-600',
       isNew: false,
@@ -471,37 +478,33 @@ async function seed() {
   const filterCatRepo = AppDataSource.getRepository(FilterCategory);
   const filterOptRepo = AppDataSource.getRepository(FilterOption);
 
-  const catType = filterCatRepo.create({ label: 'Type', sortOrder: 1 });
-  const catProvider = filterCatRepo.create({ label: 'Provider', sortOrder: 2 });
-  const catPricing = filterCatRepo.create({ label: 'Pricing', sortOrder: 3 });
-  const catStatus = filterCatRepo.create({ label: 'Status', sortOrder: 4 });
-  await filterCatRepo.save([catType, catProvider, catPricing, catStatus]);
+  const catVideo = filterCatRepo.create({ label: 'Video Generation', sortOrder: 1 });
+  const catImage = filterCatRepo.create({ label: 'Image Generation', sortOrder: 2 });
+  const catMusic = filterCatRepo.create({ label: 'Music Generation', sortOrder: 3 });
+  const catChat = filterCatRepo.create({ label: 'Chat', sortOrder: 4 });
+  await filterCatRepo.save([catVideo, catImage, catMusic, catChat]);
 
   await filterOptRepo.save([
-    // Type options
-    filterOptRepo.create({ categoryId: catType.id, label: 'Chat', sortOrder: 1 }),
-    filterOptRepo.create({ categoryId: catType.id, label: 'Image', sortOrder: 2 }),
-    filterOptRepo.create({ categoryId: catType.id, label: 'Video', sortOrder: 3 }),
-    filterOptRepo.create({ categoryId: catType.id, label: 'Music', sortOrder: 4 }),
-    // Provider options
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'OpenAI', sortOrder: 1 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Anthropic', sortOrder: 2 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Google', sortOrder: 3 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Meta', sortOrder: 4 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Stability AI', sortOrder: 5 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Runway', sortOrder: 6 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Suno', sortOrder: 7 }),
-    filterOptRepo.create({ categoryId: catProvider.id, label: 'Midjourney', sortOrder: 8 }),
-    // Pricing options
-    filterOptRepo.create({ categoryId: catPricing.id, label: 'Free Tier', sortOrder: 1 }),
-    filterOptRepo.create({ categoryId: catPricing.id, label: 'Pay-per-use', sortOrder: 2 }),
-    filterOptRepo.create({ categoryId: catPricing.id, label: 'Premium', sortOrder: 3 }),
-    // Status options
-    filterOptRepo.create({ categoryId: catStatus.id, label: 'New', sortOrder: 1 }),
-    filterOptRepo.create({ categoryId: catStatus.id, label: 'Popular', sortOrder: 2 }),
-    filterOptRepo.create({ categoryId: catStatus.id, label: 'Beta', sortOrder: 3 }),
+    // Video Generation options
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Text to Video', sortOrder: 1 }),
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Image to Video', sortOrder: 2 }),
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Video to Video', sortOrder: 3 }),
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Video Editing', sortOrder: 4 }),
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Speech to Video', sortOrder: 5 }),
+    filterOptRepo.create({ categoryId: catVideo.id, label: 'Lip Sync', sortOrder: 6 }),
+    // Image Generation options
+    filterOptRepo.create({ categoryId: catImage.id, label: 'Text to Image', sortOrder: 1 }),
+    filterOptRepo.create({ categoryId: catImage.id, label: 'Image to Image', sortOrder: 2 }),
+    filterOptRepo.create({ categoryId: catImage.id, label: 'Image Editing', sortOrder: 3 }),
+    // Music Generation options
+    filterOptRepo.create({ categoryId: catMusic.id, label: 'Text to Music', sortOrder: 1 }),
+    filterOptRepo.create({ categoryId: catMusic.id, label: 'Speech to Text', sortOrder: 2 }),
+    filterOptRepo.create({ categoryId: catMusic.id, label: 'Text to Speech', sortOrder: 3 }),
+    filterOptRepo.create({ categoryId: catMusic.id, label: 'Audio to Audio', sortOrder: 4 }),
+    // Chat options
+    filterOptRepo.create({ categoryId: catChat.id, label: 'Chat', sortOrder: 1 }),
   ]);
-  console.log('Filters seeded (4 categories, 18 options)');
+  console.log('Filters seeded (4 categories, 14 options)');
 
   // ============================================================
   // 11. CREDIT PACKAGES

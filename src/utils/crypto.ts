@@ -15,11 +15,11 @@ export function sha256(input: string): string {
 }
 
 /**
- * Generate API key in format: `km_<random>` (km = kie market)
+ * Generate API key in format: `om_<random>` (om = operis market)
  */
 export function generateApiKey(): { key: string; hash: string; prefix: string } {
   const raw = generateRandomHex(32);
-  const key = `km_${raw}`;
+  const key = `om_${raw}`;
   const hash = sha256(key);
   const prefix = raw.substring(0, 8);
   return { key, hash, prefix };

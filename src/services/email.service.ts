@@ -45,7 +45,7 @@ export class EmailService {
    * Send password reset link.
    */
   async sendPasswordResetEmail(to: string, name: string, token: string): Promise<void> {
-    const resetUrl = `${env.frontendUrl}/auth/reset-password?token=${token}`;
+    const resetUrl = `${env.frontendUrl}/reset-password?token=${token}`;
 
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px;">

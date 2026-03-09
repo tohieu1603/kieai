@@ -4,7 +4,7 @@ import { authController } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { authRateLimit } from '../middlewares/rate-limit.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { RegisterDto, LoginDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto } from '../dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DeleteAccountDto } from '../dtos/auth.dto';
 
 const router = Router();
 
@@ -285,6 +285,72 @@ router.post('/forgot-password', authRateLimit, validateBody(ForgotPasswordDto), 
  *         description: Too many auth attempts
  */
 router.post('/reset-password', authRateLimit, validateBody(ResetPasswordDto), authController.resetPassword);
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Change password (authenticated)
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     description: |
+ *       Changes the user's password. Requires current password.
+ *       All sessions are revoked on success — user must re-login.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 maxLength: 128
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Current password is incorrect
+ *       401:
+ *         description: Not authenticated
+ */
+router.put('/change-password', authenticate, authRateLimit, validateBody(ChangePasswordDto), authController.changePassword);
+
+/**
+ * @swagger
+ * /auth/delete-account:
+ *   delete:
+ *     summary: Delete user account
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     description: |
+ *       Permanently deletes the authenticated user's account and all related data.
+ *       Password users must provide their current password for confirmation.
+ *       OAuth-only users can delete without password.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Required for password users, optional for OAuth-only
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       400:
+ *         description: Password incorrect or missing
+ *       401:
+ *         description: Not authenticated
+ */
+router.delete('/delete-account', authenticate, validateBody(DeleteAccountDto), authController.deleteAccount);
 
 /**
  * @swagger

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
 import { ApiResponse } from '../utils/api-response';
+import { AppError } from '../utils/app-error';
 import { asyncHandler } from '../utils/async-handler';
 import { env } from '../config/env.config';
 
@@ -95,9 +96,11 @@ export class AuthController {
     return ApiResponse.success(res, result);
   });
 
-  /** GET /api/auth/me — Get current user */
+  /** GET /api/auth/me — Get current user (full profile from DB) */
   me = asyncHandler(async (req: Request, res: Response) => {
-    return ApiResponse.success(res, req.user);
+    if (!req.user) throw AppError.unauthorized();
+    const user = await authService.getMe(req.user.id);
+    return ApiResponse.success(res, user);
   });
 
   /** POST /api/auth/forgot-password */
@@ -111,6 +114,31 @@ export class AuthController {
   resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { token, newPassword } = req.body;
     const result = await authService.resetPassword(token, newPassword);
+    return ApiResponse.success(res, result);
+  });
+
+  /** PUT /api/auth/change-password */
+  changePassword = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+    const { currentPassword, newPassword } = req.body;
+    const result = await authService.changePassword(req.user.id, currentPassword, newPassword);
+
+    // Clear cookies — user must re-login
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
+
+    return ApiResponse.success(res, result);
+  });
+
+  /** DELETE /api/auth/delete-account */
+  deleteAccount = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+    const { password } = req.body;
+    const result = await authService.deleteAccount(req.user.id, password);
+
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
+
     return ApiResponse.success(res, result);
   });
 
