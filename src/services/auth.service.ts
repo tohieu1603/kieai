@@ -93,6 +93,24 @@ export class AuthService {
   }
 
   /**
+   * Get current user profile by ID (for /auth/me).
+   */
+  async getMe(userId: string) {
+    const { userRepo } = getRepos();
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) throw AppError.unauthorized('User not found');
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      initials: user.initials,
+      hasPassword: !!user.passwordHash,
+    };
+  }
+
+  /**
    * Verify email with token.
    */
   async verifyEmail(token: string) {
@@ -137,6 +155,8 @@ export class AuthService {
     const { userRepo } = getRepos();
     const user = await userRepo.findOne({ where: { email } });
     if (!user) throw AppError.unauthorized('Invalid email or password');
+
+    if (!user.passwordHash) throw AppError.unauthorized('Invalid email or password');
 
     const valid = await bcryptjs.compare(password, user.passwordHash);
     if (!valid) throw AppError.unauthorized('Invalid email or password');
@@ -315,6 +335,66 @@ export class AuthService {
 
     logger.info(`Password reset completed for: ${user.email}`);
     return { message: 'Password reset successfully. Please login with your new password.' };
+  }
+
+  /**
+   * Change password for authenticated user.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const { userRepo } = getRepos();
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) throw AppError.unauthorized('User not found');
+
+    if (!user.passwordHash) {
+      throw AppError.badRequest('Account does not have a password. Use Google login instead.');
+    }
+
+    const valid = await bcryptjs.compare(currentPassword, user.passwordHash);
+    if (!valid) throw AppError.badRequest('Current password is incorrect');
+
+    user.passwordHash = await bcryptjs.hash(newPassword, 12);
+    await userRepo.save(user);
+
+    await this.revokeAllTokens(userId, RevokeReason.PASSWORD_RESET);
+
+    logger.info(`Password changed for: ${user.email}`);
+    return { message: 'Password changed successfully. Please login again.' };
+  }
+
+  /**
+   * Delete user account and all related data.
+   */
+  async deleteAccount(userId: string, password?: string) {
+    const { userRepo } = getRepos();
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) throw AppError.unauthorized('User not found');
+
+    // Password users must confirm with password
+    if (user.passwordHash) {
+      if (!password) throw AppError.badRequest('Password is required to delete your account');
+      const valid = await bcryptjs.compare(password, user.passwordHash);
+      if (!valid) throw AppError.badRequest('Password is incorrect');
+    }
+
+    const email = user.email;
+
+    // Delete all related data in a transaction
+    await AppDataSource.transaction(async (manager) => {
+      await manager.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM api_keys WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM logs WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM webhook_keys WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM subscriptions WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM invoices WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM team_members WHERE user_id = $1 OR team_owner_id = $1', [userId]);
+      await manager.query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM user_credits WHERE user_id = $1', [userId]);
+      await manager.query('DELETE FROM users WHERE id = $1', [userId]);
+    });
+
+    logger.info(`Account deleted: ${email}`);
+    return { message: 'Account deleted successfully' };
   }
 
   /**

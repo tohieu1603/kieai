@@ -49,14 +49,13 @@ async function handleOAuthUser(
     user = await userRepo.findOne({ where: { email } });
 
     if (user) {
-      // Link OAuth to existing account (only if not already linked to different provider)
-      if (user.authProvider === 'local') {
-        user.authProvider = provider;
+      // Link OAuth to existing account — keep authProvider so password login still works
+      if (!user.oauthId) {
         user.oauthId = oauthId;
-        if (!user.avatarUrl && avatarUrl) user.avatarUrl = avatarUrl;
-        user.emailVerified = true; // OAuth emails are verified
-        await userRepo.save(user);
       }
+      if (!user.avatarUrl && avatarUrl) user.avatarUrl = avatarUrl;
+      user.emailVerified = true; // OAuth emails are verified
+      await userRepo.save(user);
       return done(null, user);
     }
 
