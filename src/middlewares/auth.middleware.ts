@@ -8,11 +8,13 @@ interface JwtPayload {
   id: string;
   email: string;
   role: UserRole;
+  emailVerified?: boolean;
 }
 
 /**
  * Verify JWT access token from httpOnly cookie.
  * Populates req.user with decoded payload.
+ * Rejects unverified-email accounts from accessing protected resources.
  */
 export function authenticate(req: Request, _res: Response, next: NextFunction) {
   const token = req.cookies?.access_token;
@@ -23,6 +25,11 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
 
   try {
     const decoded = jwt.verify(token, env.jwt.accessSecret) as JwtPayload;
+
+    if (!decoded.emailVerified) {
+      return next(AppError.forbidden('Please verify your email before accessing this resource'));
+    }
+
     req.user = {
       id: decoded.id,
       email: decoded.email,

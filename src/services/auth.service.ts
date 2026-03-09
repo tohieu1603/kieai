@@ -1,4 +1,3 @@
-import { Repository } from 'typeorm';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,35 +13,31 @@ import { UserRole } from '../enums';
 let UserEntity: any;
 let UserSettingsEntity: any;
 let UserCreditEntity: any;
+let RefreshTokenEntity: any;
 
 function getRepos() {
   if (!UserEntity) {
     UserEntity = require('../entities/user.entity').User;
     UserSettingsEntity = require('../entities/user-settings.entity').UserSettings;
     UserCreditEntity = require('../entities/user-credit.entity').UserCredit;
+    RefreshTokenEntity = require('../entities/refresh-token.entity').RefreshToken;
   }
   return {
     userRepo: AppDataSource.getRepository(UserEntity),
     settingsRepo: AppDataSource.getRepository(UserSettingsEntity),
     creditRepo: AppDataSource.getRepository(UserCreditEntity),
+    refreshRepo: AppDataSource.getRepository(RefreshTokenEntity),
   };
 }
 
-/**
- * Refresh token storage — in production, use Redis or DB table.
- * Map<tokenFamily, { token, userId, expiresAt }>
- * Token family rotation: each family has exactly one valid refresh token.
- */
-interface RefreshTokenRecord {
-  token: string;
-  userId: string;
-  family: string;
-  expiresAt: Date;
-  revoked: boolean;
-}
-
-// In-memory store — replace with DB/Redis in production
-const refreshTokenStore = new Map<string, RefreshTokenRecord>();
+/** Standardised revocation reasons for audit trail */
+const RevokeReason = {
+  ROTATED: 'token_rotated',
+  LOGOUT: 'user_logout',
+  LOGOUT_ALL: 'user_revoked_all_sessions',
+  PASSWORD_RESET: 'password_reset',
+  THEFT_DETECTED: 'token_reuse_theft_detected',
+} as const;
 
 export class AuthService {
   /**
@@ -130,8 +125,7 @@ export class AuthService {
 
     const { accessToken, refreshToken, family } = this.generateTokenPair(user);
 
-    // Store refresh token with family
-    this.storeRefreshToken(refreshToken, user.id, family);
+    await this.persistRefreshToken(refreshToken, user.id, family);
 
     logger.info(`User logged in: ${user.email}`);
 
@@ -151,8 +145,8 @@ export class AuthService {
 
   /**
    * Refresh access token using refresh token.
-   * Implements token family rotation — if a used token is resubmitted,
-   * the entire family is revoked (detects token theft).
+   * Implements token family rotation — if a revoked token is resubmitted,
+   * the entire family is purged (detects token theft).
    */
   async refreshAccessToken(refreshTokenValue: string) {
     let decoded: any;
@@ -162,37 +156,39 @@ export class AuthService {
       throw AppError.unauthorized('Invalid refresh token');
     }
 
+    const { refreshRepo, userRepo } = getRepos();
     const family = decoded.family as string;
-    const stored = refreshTokenStore.get(family);
+    const tokenHash = sha256(refreshTokenValue);
+
+    const stored = await refreshRepo.findOne({ where: { tokenHash } });
 
     if (!stored) {
-      throw AppError.unauthorized('Refresh token family not found');
+      throw AppError.unauthorized('Refresh token not found');
     }
 
-    // Token reuse detection — revoke entire family
-    if (stored.revoked) {
-      // Someone tried to use an already-rotated token → theft detected
-      refreshTokenStore.delete(family);
+    // Token reuse detection — someone replayed an already-rotated token
+    if (stored.isRevoked) {
+      await this.revokeFamilyTokens(family, RevokeReason.THEFT_DETECTED);
       logger.warn(`Refresh token reuse detected for family ${family}, user ${decoded.id}`);
       throw AppError.unauthorized('Token reuse detected. All sessions revoked.');
     }
 
-    if (stored.token !== refreshTokenValue) {
-      // Different token in same family → theft
-      stored.revoked = true;
-      logger.warn(`Refresh token mismatch for family ${family}`);
-      throw AppError.unauthorized('Invalid refresh token');
+    // Check expiry (belt-and-suspenders — JWT verify already checks, but DB row may lag)
+    if (stored.expiresAt < new Date()) {
+      throw AppError.unauthorized('Refresh token expired');
     }
 
-    // Rotate: mark old as revoked, issue new
-    stored.revoked = true;
+    // Rotate: revoke current, issue new in same family
+    stored.isRevoked = true;
+    stored.revokeReason = RevokeReason.ROTATED;
+    stored.revokedAt = new Date();
+    await refreshRepo.save(stored);
 
-    const { userRepo } = getRepos();
     const user = await userRepo.findOne({ where: { id: decoded.id } });
     if (!user) throw AppError.unauthorized('User not found');
 
     const { accessToken, refreshToken: newRefreshToken } = this.generateTokenPair(user, family);
-    this.storeRefreshToken(newRefreshToken, user.id, family);
+    await this.persistRefreshToken(newRefreshToken, user.id, family);
 
     return {
       accessToken,
@@ -201,12 +197,12 @@ export class AuthService {
   }
 
   /**
-   * Revoke a specific refresh token family (logout).
+   * Revoke a specific session family (logout).
    */
   async logout(refreshTokenValue: string) {
     try {
       const decoded: any = jwt.verify(refreshTokenValue, env.jwt.refreshSecret);
-      refreshTokenStore.delete(decoded.family);
+      await this.revokeFamilyTokens(decoded.family, RevokeReason.LOGOUT);
     } catch {
       // Token already expired or invalid — still clear cookies
     }
@@ -214,15 +210,15 @@ export class AuthService {
   }
 
   /**
-   * Revoke ALL refresh tokens for a user.
+   * Revoke ALL refresh tokens for a user (e.g. password reset, "logout everywhere").
    */
-  async revokeAllTokens(userId: string) {
-    for (const [family, record] of refreshTokenStore.entries()) {
-      if (record.userId === userId) {
-        refreshTokenStore.delete(family);
-      }
-    }
-    logger.info(`All tokens revoked for user ${userId}`);
+  async revokeAllTokens(userId: string, reason: string = RevokeReason.LOGOUT_ALL) {
+    const { refreshRepo } = getRepos();
+    await refreshRepo.update(
+      { userId, isRevoked: false },
+      { isRevoked: true, revokeReason: reason, revokedAt: new Date() },
+    );
+    logger.info(`All tokens revoked for user ${userId} — reason: ${reason}`);
     return { message: 'All sessions revoked' };
   }
 
@@ -290,7 +286,7 @@ export class AuthService {
     await userRepo.save(user);
 
     // Revoke all refresh tokens for security
-    await this.revokeAllTokens(user.id);
+    await this.revokeAllTokens(user.id, RevokeReason.PASSWORD_RESET);
 
     logger.info(`Password reset completed for: ${user.email}`);
     return { message: 'Password reset successfully. Please login with your new password.' };
@@ -302,7 +298,7 @@ export class AuthService {
    */
   async oauthLogin(user: any) {
     const { accessToken, refreshToken, family } = this.generateTokenPair(user);
-    this.storeRefreshToken(refreshToken, user.id, family);
+    await this.persistRefreshToken(refreshToken, user.id, family);
 
     logger.info(`OAuth login: ${user.email} via ${user.authProvider}`);
 
@@ -326,7 +322,7 @@ export class AuthService {
     const family = existingFamily || uuidv4();
 
     const accessToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, emailVerified: !!user.emailVerified },
       env.jwt.accessSecret,
       { expiresIn: env.jwt.accessExpiresIn as any },
     );
@@ -340,15 +336,27 @@ export class AuthService {
     return { accessToken, refreshToken, family };
   }
 
-  private storeRefreshToken(token: string, userId: string, family: string) {
+  /** Persist a new refresh token row in DB (hashed) */
+  private async persistRefreshToken(token: string, userId: string, family: string) {
+    const { refreshRepo } = getRepos();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    refreshTokenStore.set(family, {
-      token,
+
+    await refreshRepo.save(refreshRepo.create({
+      tokenHash: sha256(token),
       userId,
       family,
       expiresAt,
-      revoked: false,
-    });
+      isRevoked: false,
+    }));
+  }
+
+  /** Revoke all tokens in a family — used on theft detection & logout */
+  private async revokeFamilyTokens(family: string, reason: string) {
+    const { refreshRepo } = getRepos();
+    await refreshRepo.update(
+      { family, isRevoked: false },
+      { isRevoked: true, revokeReason: reason, revokedAt: new Date() },
+    );
   }
 }
 
