@@ -48,23 +48,21 @@ export class ApiKeyService extends BaseService<ApiKey> {
    * List all non-revoked API keys for a user.
    * Never returns keyHash or full key.
    */
-  async listKeys(userId: string): Promise<{
-    id: string;
-    name: string;
-    keyPrefix: string;
-    lastUsedAt: Date | null;
-    createdAt: Date;
-  }[]> {
+  async listKeys(userId: string) {
     const [keys] = await this.findAll({
       where: { userId, isRevoked: false },
       order: { createdAt: 'DESC' } as any,
     });
 
-    return keys.map(({ id, name, keyPrefix, lastUsedAt, createdAt }) => ({
+    return keys.map(({ id, name, keyPrefix, lastUsedAt, hourlyLimit, dailyLimit, totalLimit, ipWhitelist, createdAt }) => ({
       id,
       name,
       keyPrefix,
       lastUsedAt,
+      hourlyLimit,
+      dailyLimit,
+      totalLimit,
+      ipWhitelist,
       createdAt,
     }));
   }
@@ -86,6 +84,37 @@ export class ApiKeyService extends BaseService<ApiKey> {
     const apiKey = await this.findByIdAndOwner(id, userId);
     apiKey.isRevoked = true;
     await this.repository.save(apiKey);
+  }
+
+  /**
+   * Update IP whitelist for an API key.
+   */
+  async updateWhitelist(id: string, userId: string, ips: string[]): Promise<{ id: string; ipWhitelist: string[] }> {
+    const apiKey = await this.findByIdAndOwner(id, userId);
+    apiKey.ipWhitelist = ips;
+    await this.repository.save(apiKey);
+    return { id: apiKey.id, ipWhitelist: apiKey.ipWhitelist };
+  }
+
+  /**
+   * Update safe-spend limits for an API key.
+   */
+  async updateLimits(
+    id: string,
+    userId: string,
+    limits: { hourlyLimit: number; dailyLimit: number; totalLimit: number },
+  ): Promise<{ id: string; hourlyLimit: number; dailyLimit: number; totalLimit: number }> {
+    const apiKey = await this.findByIdAndOwner(id, userId);
+    apiKey.hourlyLimit = limits.hourlyLimit;
+    apiKey.dailyLimit = limits.dailyLimit;
+    apiKey.totalLimit = limits.totalLimit;
+    await this.repository.save(apiKey);
+    return {
+      id: apiKey.id,
+      hourlyLimit: apiKey.hourlyLimit,
+      dailyLimit: apiKey.dailyLimit,
+      totalLimit: apiKey.totalLimit,
+    };
   }
 
   /**

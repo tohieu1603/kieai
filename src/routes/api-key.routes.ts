@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { apiKeyController } from '../controllers/api-key.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { CreateApiKeyDto, RenameApiKeyDto } from '../dtos/api-key.dto';
+import { CreateApiKeyDto, RenameApiKeyDto, UpdateLimitsDto, UpdateWhitelistDto } from '../dtos/api-key.dto';
 
 const router = Router();
 
@@ -94,6 +94,8 @@ router.get('/', authenticate, apiKeyController.list);
  *         description: API key not found (or belongs to another user)
  */
 router.patch('/:id', authenticate, validateBody(RenameApiKeyDto), apiKeyController.rename);
+router.put('/:id/limits', authenticate, validateBody(UpdateLimitsDto), apiKeyController.updateLimits);
+router.put('/:id/whitelist', authenticate, validateBody(UpdateWhitelistDto), apiKeyController.updateWhitelist);
 router.delete('/:id', authenticate, apiKeyController.revoke);
 
 export default router;

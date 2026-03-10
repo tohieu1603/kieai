@@ -22,6 +22,18 @@ export class ApiKey extends BaseEntity {
   @Column({ name: 'is_revoked', type: 'boolean', default: false })
   isRevoked!: boolean;
 
+  @Column({ name: 'hourly_limit', type: 'int', default: 0 })
+  hourlyLimit!: number;
+
+  @Column({ name: 'daily_limit', type: 'int', default: 0 })
+  dailyLimit!: number;
+
+  @Column({ name: 'total_limit', type: 'int', default: 0 })
+  totalLimit!: number;
+
+  @Column({ name: 'ip_whitelist', type: 'jsonb', default: [] })
+  ipWhitelist!: string[];
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user!: User;

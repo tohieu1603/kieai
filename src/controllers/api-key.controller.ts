@@ -42,6 +42,24 @@ export class ApiKeyController extends BaseController<ApiKey> {
     await apiKeyService.revokeKey(id, req.user.id);
     return ApiResponse.success(res, null, 'API key revoked');
   });
+
+  /** PUT /:id/limits — Update safe-spend limits */
+  updateLimits = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { hourlyLimit, dailyLimit, totalLimit } = req.body;
+    const result = await apiKeyService.updateLimits(id, req.user.id, { hourlyLimit, dailyLimit, totalLimit });
+    return ApiResponse.success(res, result, 'Limits updated');
+  });
+
+  /** PUT /:id/whitelist — Update IP whitelist */
+  updateWhitelist = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { ips } = req.body;
+    const result = await apiKeyService.updateWhitelist(id, req.user.id, ips);
+    return ApiResponse.success(res, result, 'Whitelist updated');
+  });
 }
 
 export const apiKeyController = new ApiKeyController();
