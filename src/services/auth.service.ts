@@ -9,6 +9,12 @@ import { generateRandomHex, sha256 } from '../utils/crypto';
 import { emailService } from './email.service';
 import { UserRole } from '../enums';
 
+/** Client metadata for session tracking */
+export interface RequestMeta {
+  userAgent?: string;
+  ipAddress?: string;
+}
+
 // Lazy entity imports to avoid circular dependency issues
 let UserEntity: any;
 let UserSettingsEntity: any;
@@ -151,7 +157,7 @@ export class AuthService {
   /**
    * Login — returns access + refresh tokens.
    */
-  async login(email: string, password: string) {
+  async login(email: string, password: string, meta?: RequestMeta) {
     const { userRepo } = getRepos();
     const user = await userRepo.findOne({ where: { email } });
     if (!user) throw AppError.unauthorized('Invalid email or password');
@@ -170,7 +176,7 @@ export class AuthService {
 
     const { accessToken, refreshToken, family } = this.generateTokenPair(user);
 
-    await this.persistRefreshToken(refreshToken, user.id, family);
+    await this.persistRefreshToken(refreshToken, user.id, family, meta);
 
     logger.info(`User logged in: ${user.email}`);
 
@@ -401,9 +407,9 @@ export class AuthService {
    * Generate tokens for OAuth-authenticated user and return login result.
    * Called after passport successfully authenticates the user.
    */
-  async oauthLogin(user: any) {
+  async oauthLogin(user: any, meta?: RequestMeta) {
     const { accessToken, refreshToken, family } = this.generateTokenPair(user);
-    await this.persistRefreshToken(refreshToken, user.id, family);
+    await this.persistRefreshToken(refreshToken, user.id, family, meta);
 
     logger.info(`OAuth login: ${user.email} via ${user.authProvider}`);
 
@@ -441,8 +447,8 @@ export class AuthService {
     return { accessToken, refreshToken, family };
   }
 
-  /** Persist a new refresh token row in DB (hashed) */
-  private async persistRefreshToken(token: string, userId: string, family: string) {
+  /** Persist a new refresh token row in DB (hashed, with client metadata) */
+  private async persistRefreshToken(token: string, userId: string, family: string, meta?: RequestMeta) {
     const { refreshRepo } = getRepos();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -452,6 +458,8 @@ export class AuthService {
       family,
       expiresAt,
       isRevoked: false,
+      userAgent: meta?.userAgent || null,
+      ipAddress: meta?.ipAddress || null,
     }));
   }
 

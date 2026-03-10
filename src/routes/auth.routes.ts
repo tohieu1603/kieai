@@ -2,7 +2,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { authController } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
-import { authRateLimit } from '../middlewares/rate-limit.middleware';
+import { authRateLimit, loginRateLimit } from '../middlewares/rate-limit.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { RegisterDto, LoginDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DeleteAccountDto } from '../dtos/auth.dto';
 
@@ -95,7 +95,7 @@ router.post('/register', authRateLimit, validateBody(RegisterDto), authControlle
  *       429:
  *         description: Too many auth attempts
  */
-router.post('/login', authRateLimit, validateBody(LoginDto), authController.login);
+router.post('/login', loginRateLimit, validateBody(LoginDto), authController.login);
 
 /**
  * @swagger

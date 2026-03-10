@@ -19,8 +19,8 @@ export const globalRateLimit = rateLimit({
 });
 
 /**
- * Strict rate limiter for auth endpoints (login, register).
- * 10 attempts per 15 minutes.
+ * Strict rate limiter for auth endpoints (register, forgot-password, reset-password).
+ * 10 attempts per 15 minutes per IP.
  */
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -31,6 +31,26 @@ export const authRateLimit = rateLimit({
   message: {
     success: false,
     message: 'Too many auth attempts. Please try again in 15 minutes.',
+  },
+});
+
+/**
+ * Login-specific rate limiter — stricter to prevent brute-force.
+ * 5 attempts per 15 minutes, keyed by IP + email combo.
+ */
+export const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => {
+    const email = (req.body?.email || '').toLowerCase().trim();
+    return `${req.ip}:${email}`;
+  },
+  message: {
+    success: false,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
   },
 });
 

@@ -18,6 +18,12 @@ const cookieOptions = (maxAge: number) => ({
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 min
 const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/** Extract client metadata from request for session tracking */
+const getRequestMeta = (req: Request) => ({
+  userAgent: req.headers['user-agent'] || undefined,
+  ipAddress: req.ip || req.socket.remoteAddress || undefined,
+});
+
 export class AuthController {
   /** POST /api/auth/register */
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -43,7 +49,7 @@ export class AuthController {
   /** POST /api/auth/login */
   login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const result = await authService.login(email, password, getRequestMeta(req));
 
     // Set httpOnly cookies
     res.cookie('access_token', result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE));
@@ -147,7 +153,7 @@ export class AuthController {
     const user = req.user as any;
     if (!user) return ApiResponse.error(res, 'OAuth authentication failed', 401);
 
-    const result = await authService.oauthLogin(user);
+    const result = await authService.oauthLogin(user, getRequestMeta(req));
 
     res.cookie('access_token', result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE));
     res.cookie('refresh_token', result.refreshToken, cookieOptions(REFRESH_TOKEN_MAX_AGE));
@@ -160,7 +166,7 @@ export class AuthController {
     const user = req.user as any;
     if (!user) return ApiResponse.error(res, 'OAuth authentication failed', 401);
 
-    const result = await authService.oauthLogin(user);
+    const result = await authService.oauthLogin(user, getRequestMeta(req));
 
     res.cookie('access_token', result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE));
     res.cookie('refresh_token', result.refreshToken, cookieOptions(REFRESH_TOKEN_MAX_AGE));
