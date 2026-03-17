@@ -93,14 +93,14 @@ export class SepayService {
       expiresAt.setMinutes(expiresAt.getMinutes() + DEPOSIT_EXPIRY_MINUTES);
       const isExpired = expiresAt <= new Date();
 
-      if (!isExpired && Number(existingPending.amount) === amount) {
-        // Same amount, reuse existing order (anti-spam)
-        return this.formatOrderResponse(existingPending);
+      if (!isExpired) {
+        // Active pending exists → block new creation
+        throw AppError.badRequest('Bạn đang có đơn chờ thanh toán. Hãy hoàn tất hoặc huỷ đơn cũ trước.');
       }
 
-      // Different amount or expired → cancel old order
+      // Expired → cancel old order
       existingPending.status = TransactionStatus.FAILED;
-      existingPending.description = 'Cancelled: replaced by new order';
+      existingPending.description = 'Cancelled: expired';
       await txnRepo.save(existingPending);
     }
 

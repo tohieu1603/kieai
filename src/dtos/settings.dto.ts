@@ -1,4 +1,4 @@
-import { IsEnum, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsBoolean, IsOptional, IsString, MaxLength, IsArray, IsInt, Min, ArrayMaxSize } from 'class-validator';
 import { Theme } from '../enums';
 
 export class UpdateSettingsDto {
@@ -9,6 +9,13 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   emailNotifications?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  creditAlerts?: number[];
 }
 
 export class UpdateProfileDto {

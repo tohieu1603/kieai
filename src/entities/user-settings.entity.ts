@@ -25,6 +25,9 @@ export class UserSettings extends TypeOrmBaseEntity {
   @Column({ name: 'email_notifications', default: true })
   emailNotifications!: boolean;
 
+  @Column({ name: 'credit_alerts', type: 'jsonb', default: '[]' })
+  creditAlerts!: number[];
+
   // Relations
   @OneToOne(() => User, (user) => user.userSettings)
   @JoinColumn({ name: 'user_id' })

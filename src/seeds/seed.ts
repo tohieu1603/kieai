@@ -511,11 +511,11 @@ async function seed() {
   // ============================================================
   const pkgRepo = AppDataSource.getRepository(CreditPackage);
   await pkgRepo.save([
-    pkgRepo.create({ price: 5.00, credits: 500, badge: null }),
-    pkgRepo.create({ price: 10.00, credits: 1100, badge: 'Popular' }),
-    pkgRepo.create({ price: 25.00, credits: 3000, badge: 'Best Value' }),
-    pkgRepo.create({ price: 50.00, credits: 6500, badge: null }),
-    pkgRepo.create({ price: 100.00, credits: 14000, badge: 'Enterprise' }),
+    pkgRepo.create({ price: 150000, credits: 500, badge: null }),
+    pkgRepo.create({ price: 300000, credits: 1100, badge: 'Popular' }),
+    pkgRepo.create({ price: 700000, credits: 3000, badge: 'Best Value' }),
+    pkgRepo.create({ price: 1500000, credits: 6500, badge: null }),
+    pkgRepo.create({ price: 3000000, credits: 14000, badge: 'Enterprise' }),
   ]);
   console.log('Credit packages seeded (5)');
 
