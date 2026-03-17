@@ -1,3 +1,4 @@
+process.env.TZ = 'UTC';
 import { LessThan } from 'typeorm';
 import app from './app';
 import { AppDataSource } from './config/database.config';

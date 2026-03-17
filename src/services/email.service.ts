@@ -75,6 +75,34 @@ export class EmailService {
   }
 
   /**
+   * Send credit alert when balance drops below a threshold.
+   */
+  async sendCreditAlertEmail(to: string, name: string, balance: number, threshold: number): Promise<void> {
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px;">
+        <h2 style="color: #e53e3e; margin-bottom: 8px;">Credit Balance Alert</h2>
+        <p style="color: #555; font-size: 15px;">Hi <strong>${name}</strong>,</p>
+        <p style="color: #555; font-size: 15px;">
+          Your credit balance has dropped to <strong>${balance.toLocaleString()}</strong> credits,
+          which is below your alert threshold of <strong>${threshold.toLocaleString()}</strong> credits.
+        </p>
+        <a href="${env.frontendUrl}/billing"
+           style="display: inline-block; padding: 12px 28px; margin: 20px 0;
+                  background: #111; color: #fff; border-radius: 6px;
+                  text-decoration: none; font-weight: 600; font-size: 14px;">
+          Top Up Credits
+        </a>
+        <p style="color: #aaa; font-size: 12px; margin-top: 32px;">
+          You can manage your alert thresholds in Billing settings.
+        </p>
+      </div>
+    `;
+
+    await this.send(to, `Credit Alert: Balance below ${threshold.toLocaleString()} — Operis Market`, html);
+    logger.info(`Credit alert email sent to ${to} (balance: ${balance}, threshold: ${threshold})`);
+  }
+
+  /**
    * Low-level send helper. Logs errors but does not throw — email failures
    * should not block the main auth flow.
    */

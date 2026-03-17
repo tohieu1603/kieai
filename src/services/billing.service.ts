@@ -2,8 +2,11 @@ import { AppDataSource } from '../config/database.config';
 import { CreditPackage } from '../entities/credit-package.entity';
 import { Transaction } from '../entities/transaction.entity';
 import { UserCredit } from '../entities/user-credit.entity';
+import { TransactionType, TransactionStatus } from '../enums';
 import { BaseService } from './base.service';
 import { AppError } from '../utils/app-error';
+
+const DEPOSIT_EXPIRY_MINUTES = 30;
 
 export class BillingService extends BaseService<CreditPackage> {
   constructor() {
@@ -77,7 +80,18 @@ export class BillingService extends BaseService<CreditPackage> {
       take: limit,
     });
 
-    return { data, total, page, limit };
+    const mapped = data.map((tx) => {
+      if (tx.type === TransactionType.SEPAY_TOPUP && tx.status === TransactionStatus.PENDING) {
+        const expiresAt = new Date(tx.createdAt);
+        expiresAt.setMinutes(expiresAt.getMinutes() + DEPOSIT_EXPIRY_MINUTES);
+        if (expiresAt <= new Date()) {
+          return { ...tx, status: 'expired' as any };
+        }
+      }
+      return tx;
+    });
+
+    return { data: mapped, total, page, limit };
   }
 
   /**
